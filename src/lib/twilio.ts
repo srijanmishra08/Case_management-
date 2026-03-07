@@ -8,7 +8,7 @@ const fromWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER!; // e.g. "whatsapp:+141
 
 /**
  * Send a WhatsApp message via Twilio.
- * @param phoneNumber - Client phone number in E.164 format (e.g. "+919876543210")
+ * @param phoneNumber - Client phone number (e.g. "7879722663", "+919876543210")
  * @param message - The message body to send
  */
 export async function sendWhatsAppMessage(
@@ -23,9 +23,21 @@ export async function sendWhatsAppMessage(
 
     const client = twilio(accountSid, authToken);
 
-    const to = phoneNumber.startsWith("whatsapp:")
-      ? phoneNumber
-      : `whatsapp:${phoneNumber}`;
+    // Normalize phone number to E.164 format
+    let normalized = phoneNumber.replace(/[\s\-()]/g, "");
+    if (normalized.startsWith("whatsapp:")) {
+      normalized = normalized.replace("whatsapp:", "");
+    }
+    // If no country code, assume India (+91)
+    if (!normalized.startsWith("+")) {
+      if (normalized.startsWith("91") && normalized.length === 12) {
+        normalized = `+${normalized}`;
+      } else {
+        normalized = `+91${normalized}`;
+      }
+    }
+
+    const to = `whatsapp:${normalized}`;
 
     const from = fromWhatsApp.startsWith("whatsapp:")
       ? fromWhatsApp
