@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split("T")[0];
 
-    const cases = getHearingsWithUpcomingDate(tomorrowStr);
+    const cases = await getHearingsWithUpcomingDate(tomorrowStr);
 
     if (cases.length === 0) {
       return NextResponse.json({ message: "No hearings tomorrow", count: 0 });

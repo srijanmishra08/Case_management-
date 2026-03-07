@@ -14,13 +14,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const existing = getUserByEmail(email);
+    const existing = await getUserByEmail(email);
     if (existing) {
       return NextResponse.json({ error: "Email already registered" }, { status: 409 });
     }
 
     const password_hash = await hashPassword(password);
-    const user = createUser({
+    const user = await createUser({
       id: uuidv4(),
       email,
       password_hash,

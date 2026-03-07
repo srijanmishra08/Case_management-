@@ -13,13 +13,13 @@ export async function GET(
   }
 
   const { id } = await params;
-  const client = getClientById(id);
+  const client = await getClientById(id);
   if (!client || client.user_id !== user.id) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
-  const hearings = getHearingsByClientId(id);
-  const latestHearing = getLatestHearingByClientId(id);
+  const hearings = await getHearingsByClientId(id);
+  const latestHearing = await getLatestHearingByClientId(id);
 
   return NextResponse.json({ client, hearings, latestHearing });
 }
@@ -35,14 +35,14 @@ export async function PUT(
   }
 
   const { id } = await params;
-  const existing = getClientById(id);
+  const existing = await getClientById(id);
   if (!existing || existing.user_id !== user.id) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
   try {
     const body = await req.json();
-    const updated = updateClient(id, {
+    const updated = await updateClient(id, {
       client_name: body.client_name,
       client_whatsapp: body.client_whatsapp,
       case_title: body.case_title,
@@ -67,11 +67,11 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const existing = getClientById(id);
+  const existing = await getClientById(id);
   if (!existing || existing.user_id !== user.id) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
-  deleteClient(id);
+  await deleteClient(id);
   return NextResponse.json({ success: true });
 }

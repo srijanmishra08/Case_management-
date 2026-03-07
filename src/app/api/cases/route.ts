@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const clients = getClientsByUserId(user.id);
+  const clients = await getClientsByUserId(user.id);
   return NextResponse.json({ clients });
 }
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const client = createClient({
+    const client = await createClient({
       id: uuidv4(),
       user_id: user.id,
       client_name,

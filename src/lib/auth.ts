@@ -37,7 +37,7 @@ export async function getCurrentUser(): Promise<UserRecord | null> {
   const payload = verifyToken(token);
   if (!payload) return null;
 
-  return getUserById(payload.userId);
+  return await getUserById(payload.userId);
 }
 
 /**
@@ -47,7 +47,7 @@ export async function authenticate(
   email: string,
   password: string
 ): Promise<string | null> {
-  const user = getUserByEmail(email);
+  const user = await getUserByEmail(email);
   if (!user) return null;
 
   const valid = await verifyPassword(password, user.password_hash);

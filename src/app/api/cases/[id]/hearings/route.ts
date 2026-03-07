@@ -14,7 +14,7 @@ export async function POST(
   }
 
   const { id } = await params;
-  const client = getClientById(id);
+  const client = await getClientById(id);
   if (!client || client.user_id !== user.id) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
@@ -27,7 +27,7 @@ export async function POST(
       return NextResponse.json({ error: "Hearing date is required" }, { status: 400 });
     }
 
-    const hearing = createHearing({
+    const hearing = await createHearing({
       id: uuidv4(),
       client_id: id,
       hearing_date,
