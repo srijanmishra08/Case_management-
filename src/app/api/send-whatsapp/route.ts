@@ -10,7 +10,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { phoneNumber, message } = await req.json();
+    const body = await req.json();
+    const { phoneNumber, message, templateParams } = body;
 
     if (!phoneNumber || !message) {
       return NextResponse.json(
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await sendWhatsAppMessage(phoneNumber, message);
+    const result = await sendWhatsAppMessage(phoneNumber, message, templateParams);
 
     if (result.success) {
       return NextResponse.json({ success: true, messageId: result.messageId });

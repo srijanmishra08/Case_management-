@@ -50,6 +50,7 @@ export default function ClientDetailPage() {
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [whatsAppResult, setWhatsAppResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [pendingTemplateParams, setPendingTemplateParams] = useState<Record<string, string> | null>(null);
 
   // Edit client mode
   const [editing, setEditing] = useState(false);
@@ -106,6 +107,19 @@ export default function ClientDetailPage() {
       setHearings((prev) => [data.hearing, ...prev]);
       setSaved(true);
 
+      // Capture template params before resetting form
+      const tplParams = {
+        clientName: client!.client_name,
+        caseTitle: client!.case_title,
+        courtName: client!.court_name,
+        previousHearingDate: hearingForm.hearing_date || "N/A",
+        nextHearingDate: hearingForm.next_hearing_date || "N/A",
+        purposeOfHearing: hearingForm.purpose_of_hearing || "N/A",
+        specialNotes: hearingForm.special_notes || "",
+        firmName: user?.firm_name || "Law Office",
+      };
+      setPendingTemplateParams(tplParams);
+
       // Generate WhatsApp preview
       const msg = generateCaseUpdateMessage({
         case_title: client!.case_title,
@@ -139,12 +153,14 @@ export default function ClientDetailPage() {
         body: JSON.stringify({
           phoneNumber: client.client_whatsapp,
           message: previewMessage,
+          templateParams: pendingTemplateParams,
         }),
       });
       const data = await res.json();
       if (res.ok) {
         setWhatsAppResult({ success: true, message: "WhatsApp message sent successfully!" });
         setPreviewMessage(null);
+        setPendingTemplateParams(null);
       } else {
         setWhatsAppResult({ success: false, message: data.error || "Failed to send" });
       }
