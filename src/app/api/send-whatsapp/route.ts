@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const result = await sendWhatsAppMessage(phoneNumber, message);
 
     if (result.success) {
-      return NextResponse.json({ success: true, sid: result.sid });
+      return NextResponse.json({ success: true, messageId: result.messageId });
     } else {
       return NextResponse.json(
         { error: result.error || "Failed to send message" },
