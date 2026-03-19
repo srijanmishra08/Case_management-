@@ -12,11 +12,20 @@
 //   Name:     case_update
 //   Category: UTILITY
 //   Language: English (en_US)
-//   Body:     Hi {{1}}, here is an update on your case *{{2}}* at *{{3}}*.\n\nPrevious Hearing: {{4}}\nNext Hearing: {{5}}\nPurpose: {{6}}\n\n{{7}}\nRegards, {{8}}
+//   Body (copy exactly):
 //
-// Variables map: 1=client_name, 2=case_title, 3=court_name,
-//               4=previous_hearing_date, 5=next_hearing_date,
-//               6=purpose_of_hearing, 7=special_notes, 8=firm_name
+//   Dear {{1}}, please find below the latest update for your case.
+//
+//   Case Title: {{2}}
+//   Court: {{3}}
+//
+//   Last Hearing Date: {{4}}
+//   Next Hearing Date: {{5}}
+//   Purpose of Next Hearing: {{6}}
+//
+//   Additional Notes: {{7}}
+//
+//   This message was sent on behalf of {{8}}. For any queries, please contact your legal representative directly. Thank you.
 
 export { generateCaseUpdateMessage, generateReminderMessage } from "./messages";
 
@@ -104,8 +113,8 @@ export async function sendWhatsAppMessage(
       to,
       type: "template",
       template: {
-        name: "case_update",
-        language: { code: "en_US" },
+        name: "case",
+        language: { code: "hi" },
         components: [
           {
             type: "body",
