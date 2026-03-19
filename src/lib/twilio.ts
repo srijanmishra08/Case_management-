@@ -114,7 +114,7 @@ export async function sendWhatsAppMessage(
       type: "template",
       template: {
         name: "case",
-        language: { code: "en_US" },
+        language: { code: "en" },
         components: [
           {
             type: "body",
