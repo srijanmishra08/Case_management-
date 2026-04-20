@@ -1,4 +1,25 @@
-import { sql } from "@vercel/postgres";
+import { Pool } from "pg";
+
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+// Helper that mimics @vercel/postgres tagged-template `sql`
+async function sql(strings: TemplateStringsArray, ...values: unknown[]): Promise<{ rows: unknown[] }> {
+  let text = "";
+  strings.forEach((str, i) => {
+    text += str;
+    if (i < values.length) text += `$${i + 1}`;
+  });
+  const client = await pool.connect();
+  try {
+    const result = await client.query(text, values as unknown[]);
+    return { rows: result.rows };
+  } finally {
+    client.release();
+  }
+}
 
 // ===== Database Initialization =====
 
