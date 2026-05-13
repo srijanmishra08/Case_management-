@@ -64,12 +64,65 @@ export async function ensureDbInitialized(): Promise<void> {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS otp_codes (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      code TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
   // Indexes (CREATE INDEX IF NOT EXISTS is supported in Postgres)
   await sql`CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_hearings_client_id ON hearings(client_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_hearings_next_date ON hearings(next_hearing_date)`;
 
   initialized = true;
+}
+
+// ===== OTP Operations =====
+
+export async function createOtp(email: string, code: string): Promise<void> {
+  await ensureDbInitialized();
+  const id = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  // Invalidate any previous OTPs for this email
+  await sql`UPDATE otp_codes SET used = TRUE WHERE email = ${email}`;
+  await sql`
+    INSERT INTO otp_codes (id, email, code, expires_at)
+    VALUES (${id}, ${email}, ${code}, ${expiresAt.toISOString()})
+  `;
+}
+
+export async function verifyOtp(email: string, code: string): Promise<boolean> {
+  await ensureDbInitialized();
+  const { rows } = await sql`
+    SELECT * FROM otp_codes
+    WHERE email = ${email} AND code = ${code} AND used = FALSE AND expires_at > NOW()
+    ORDER BY created_at DESC LIMIT 1
+  `;
+  return rows.length > 0;
+}
+
+export async function consumeOtp(email: string, code: string): Promise<boolean> {
+  await ensureDbInitialized();
+  const { rows } = await sql`
+    SELECT * FROM otp_codes
+    WHERE email = ${email} AND code = ${code} AND used = FALSE AND expires_at > NOW()
+    ORDER BY created_at DESC LIMIT 1
+  `;
+  if (rows.length === 0) return false;
+  const row = rows[0] as { id: string };
+  await sql`UPDATE otp_codes SET used = TRUE WHERE id = ${row.id}`;
+  return true;
+}
+
+export async function updateUserPassword(email: string, newPasswordHash: string): Promise<void> {
+  await ensureDbInitialized();
+  await sql`UPDATE users SET password_hash = ${newPasswordHash} WHERE email = ${email}`;
 }
 
 // ===== Client Operations =====
