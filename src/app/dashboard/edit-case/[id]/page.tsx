@@ -10,6 +10,9 @@ interface ClientInfo {
   client_whatsapp: string;
   case_title: string;
   court_name: string;
+  crn?: string | null;
+  import_source?: string;
+  ecase_court_code?: string | null;
 }
 
 interface Hearing {
@@ -181,9 +184,16 @@ export default function ClientDetailPage() {
         ) : (
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{client.client_name}</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-gray-900">{client.client_name}</h2>
+                {client.import_source === "ecase" && (
+                  <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full">
+                    Imported from eCase
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-500 mt-1">{client.client_whatsapp}</p>
-              <div className="flex items-center gap-4 mt-3">
+              <div className="flex flex-wrap items-center gap-4 mt-3">
                 <span className="inline-flex items-center gap-1.5 text-sm text-gray-700">
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                   {client.case_title}
@@ -192,6 +202,17 @@ export default function ClientDetailPage() {
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4" /></svg>
                   {client.court_name}
                 </span>
+                {client.crn && (
+                  <span className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    CRN: <span className="font-mono text-xs">{client.crn}</span>
+                  </span>
+                )}
+                {client.ecase_court_code && (
+                  <span className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                    Court Code: <span className="font-mono text-xs">{client.ecase_court_code}</span>
+                  </span>
+                )}
               </div>
             </div>
             <button

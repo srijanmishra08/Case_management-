@@ -52,6 +52,20 @@ export async function ensureDbInitialized(): Promise<void> {
     )
   `;
 
+  // Add eCase columns if they don't exist
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS crn TEXT
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS ecase_court_code TEXT
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS import_source TEXT DEFAULT 'manual'
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS ecase_metadata JSONB
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS hearings (
       id TEXT PRIMARY KEY,
@@ -134,6 +148,10 @@ export interface ClientRecord {
   client_whatsapp: string;
   case_title: string;
   court_name: string;
+  crn?: string | null;
+  ecase_court_code?: string | null;
+  import_source?: string;
+  ecase_metadata?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -141,8 +159,17 @@ export interface ClientRecord {
 export async function createClient(data: Omit<ClientRecord, "created_at" | "updated_at">): Promise<ClientRecord> {
   await ensureDbInitialized();
   const { rows } = await sql`
-    INSERT INTO clients (id, user_id, client_name, client_whatsapp, case_title, court_name)
-    VALUES (${data.id}, ${data.user_id}, ${data.client_name}, ${data.client_whatsapp}, ${data.case_title}, ${data.court_name})
+    INSERT INTO clients (
+      id, user_id, client_name, client_whatsapp, case_title, court_name,
+      crn, ecase_court_code, import_source, ecase_metadata
+    )
+    VALUES (
+      ${data.id}, ${data.user_id}, ${data.client_name}, ${data.client_whatsapp},
+      ${data.case_title}, ${data.court_name},
+      ${data.crn || null}, ${data.ecase_court_code || null},
+      ${data.import_source || "manual"},
+      ${data.ecase_metadata ? JSON.stringify(data.ecase_metadata) : null}
+    )
     RETURNING *
   `;
   return rows[0] as ClientRecord;
@@ -288,4 +315,45 @@ export async function getUserById(id: string): Promise<UserRecord | null> {
   await ensureDbInitialized();
   const { rows } = await sql`SELECT * FROM users WHERE id = ${id}`;
   return (rows[0] as UserRecord) || null;
+}
+
+// ===== eCase Operations =====
+
+export async function updateClientCRN(
+  clientId: string,
+  crn: string,
+  courtCode: string,
+  ecaseMetadata?: Record<string, unknown>
+): Promise<ClientRecord | null> {
+  await ensureDbInitialized();
+  const { rows } = await sql`
+    UPDATE clients
+    SET crn = ${crn},
+        ecase_court_code = ${courtCode},
+        import_source = 'ecase',
+        ecase_metadata = ${ecaseMetadata ? JSON.stringify(ecaseMetadata) : null},
+        updated_at = NOW()
+    WHERE id = ${clientId}
+    RETURNING *
+  `;
+  return (rows[0] as ClientRecord) || null;
+}
+
+export async function getClientByCRN(crn: string, userId: string): Promise<ClientRecord | null> {
+  await ensureDbInitialized();
+  const { rows } = await sql`
+    SELECT * FROM clients
+    WHERE crn = ${crn} AND user_id = ${userId}
+  `;
+  return (rows[0] as ClientRecord) || null;
+}
+
+export async function getAllClientsWithCRN(userId: string): Promise<ClientRecord[]> {
+  await ensureDbInitialized();
+  const { rows } = await sql`
+    SELECT * FROM clients
+    WHERE user_id = ${userId} AND crn IS NOT NULL
+    ORDER BY updated_at DESC
+  `;
+  return rows as ClientRecord[];
 }

@@ -9,6 +9,8 @@ interface Client {
   client_whatsapp: string;
   case_title: string;
   court_name: string;
+  crn?: string | null;
+  import_source?: string;
   updated_at: string;
 }
 
@@ -122,8 +124,9 @@ export default function CasesListPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Client</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Case Title</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Court</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">CRN</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Next Hearing</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Purpose</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden xl:table-cell">Purpose</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
@@ -138,8 +141,24 @@ export default function CasesListPage() {
                           <p className="text-xs text-gray-400">{c.client_whatsapp}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{c.case_title}</td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-gray-900">{c.case_title}</p>
+                          {c.import_source === "ecase" && (
+                            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full mt-1">
+                              eCase
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{c.court_name}</td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {c.crn ? (
+                          <span className="font-mono text-xs text-gray-700">{c.crn}</span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         {h?.next_hearing_date ? (
                           <span
@@ -155,7 +174,7 @@ export default function CasesListPage() {
                           <span className="text-gray-400 text-xs">No hearings yet</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 hidden lg:table-cell max-w-[200px] truncate">
+                      <td className="px-4 py-3 text-gray-600 hidden xl:table-cell max-w-[200px] truncate">
                         {h?.purpose_of_hearing || "—"}
                       </td>
                       <td className="px-4 py-3 text-right">
