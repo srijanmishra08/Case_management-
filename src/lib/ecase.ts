@@ -73,6 +73,9 @@ interface EnumEntry {
 }
 
 interface EnumsData {
+  // Real shape: { enums: { courtCode: [...] } }
+  enums?: { courtCode?: EnumEntry[]; [key: string]: unknown };
+  // Fallback in case shape changes
   courtCode?: EnumEntry[];
   [key: string]: unknown;
 }
@@ -131,7 +134,9 @@ interface CaseDetailData {
 export async function fetchCourts(): Promise<Court[]> {
   const data = await ecaseFetch<EnumsData>("/api/partner/enums?types=courtCode");
 
-  const entries: EnumEntry[] = data.courtCode ?? [];
+  // Real response: { data: { enums: { courtCode: [...] } } }
+  // After unwrapping data envelope: { enums: { courtCode: [...] } }
+  const entries: EnumEntry[] = data.enums?.courtCode ?? data.courtCode ?? [];
 
   return entries.map((e) => {
     // Derive a rough location/type from the court code prefix
