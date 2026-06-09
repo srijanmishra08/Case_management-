@@ -1,7 +1,9 @@
-// eCase API Client Library — eCourts India Partner API
+// eCase API Client Library — eCourts India Partner API (ecourtsindia.com)
+// Docs: https://ecourtsindia.com/api/docs
+// Base URL: https://webapi.ecourtsindia.com
 
 const ECASE_API_BASE_URL =
-  process.env.ECASE_API_BASE_URL || "https://api.ecourts.gov.in/partner/v1";
+  process.env.ECASE_API_BASE_URL || "https://webapi.ecourtsindia.com";
 const ECASE_API_KEY = process.env.ECASE_API_KEY || "";
 
 function ecaseHeaders(): HeadersInit {
@@ -27,7 +29,9 @@ async function ecaseFetch<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`eCourts API error ${res.status}: ${text}`);
   }
 
-  return res.json() as Promise<T>;
+  const json = await res.json();
+  // All API responses are wrapped: { data: ..., meta: ... }
+  return (json.data ?? json) as T;
 }
 
 export interface Court {
@@ -62,110 +66,178 @@ export interface CaseDetails {
   case_summary?: string;
 }
 
-// --- API response shapes (normalised below) ---
-
-interface ApiCourt {
-  court_code?: string;
-  code?: string;
-  court_name?: string;
-  name?: string;
-  state?: string;
-  district?: string;
-  location?: string;
-  court_type?: string;
-  type?: string;
+// ── Enum response shape ───────────────────────────────────────────────────────
+interface EnumEntry {
+  code: string;
+  description: string;
 }
 
-interface ApiCaseListItem {
-  crn?: string;
-  case_no?: string;
-  case_title?: string;
-  title?: string;
-  parties?: string;
-  petitioner?: string;
-  respondent?: string;
-  filing_date?: string;
-  date_of_filing?: string;
-  case_type?: string;
-  type_of_case?: string;
-  case_status?: string;
-  status?: string;
+interface EnumsData {
+  courtCode?: EnumEntry[];
+  [key: string]: unknown;
 }
 
-interface ApiCaseDetails extends ApiCaseListItem {
-  court_code?: string;
-  court_name?: string;
-  judge_name?: string;
-  next_hearing_date?: string;
-  next_date?: string;
-  case_summary?: string;
-  summary?: string;
+// ── Search response shape ─────────────────────────────────────────────────────
+interface SearchResult {
+  cnr: string;
+  caseType?: string;
+  caseStatus?: string;
+  filingDate?: string;
+  petitioners?: string[];
+  respondents?: string[];
+  courtCode?: string;
+  judges?: string[];
+  nextHearingDate?: string;
 }
 
-function normaliseCourt(c: ApiCourt): Court {
-  return {
-    code: c.court_code ?? c.code ?? "",
-    name: c.court_name ?? c.name ?? "",
-    location: c.location ?? c.district ?? c.state ?? "",
-    type: c.court_type ?? c.type ?? "",
+interface SearchData {
+  results: SearchResult[];
+  totalHits?: number;
+}
+
+// ── Case detail response shape ────────────────────────────────────────────────
+interface CourtCaseData {
+  cnr: string;
+  caseType?: string;
+  caseTypeRaw?: string;
+  caseStatus?: string;
+  filingDate?: string;
+  petitioners?: string[];
+  respondents?: string[];
+  courtCode?: string;
+  courtName?: string;
+  judges?: string[];
+  nextHearingDate?: string;
+  purpose?: string;
+  descriptions?: {
+    enumLookup?: {
+      courtCode?: Record<string, string>;
+      caseType?: Record<string, string>;
+      caseStatus?: Record<string, string>;
+    };
   };
 }
 
-function normaliseCaseList(c: ApiCaseListItem): CaseListItem {
-  const petitioner = c.petitioner ?? "";
-  const respondent = c.respondent ?? "";
-  return {
-    crn: c.crn ?? c.case_no ?? "",
-    case_title: c.case_title ?? c.title ?? (petitioner && respondent ? `${petitioner} vs ${respondent}` : ""),
-    parties: c.parties ?? (petitioner && respondent ? `${petitioner} vs ${respondent}` : ""),
-    filing_date: c.filing_date ?? c.date_of_filing ?? "",
-    case_type: c.case_type ?? c.type_of_case ?? "",
-    case_status: c.case_status ?? c.status ?? "",
-  };
+interface CaseDetailData {
+  courtCaseData: CourtCaseData;
 }
 
-function normaliseCaseDetails(c: ApiCaseDetails, crn: string): CaseDetails {
-  const base = normaliseCaseList(c);
-  return {
-    ...base,
-    crn: base.crn || crn,
-    petitioner: c.petitioner ?? "",
-    respondent: c.respondent ?? "",
-    court_code: c.court_code ?? "",
-    court_name: c.court_name ?? "",
-    judge_name: c.judge_name,
-    next_hearing_date: c.next_hearing_date ?? c.next_date,
-    case_summary: c.case_summary ?? c.summary,
-  };
-}
+// ─────────────────────────────────────────────────────────────────────────────
 
-// GET /courts
+/**
+ * Fetch available courts using the live enum endpoint.
+ * GET /api/partner/enums?types=courtCode  (no credits charged)
+ */
 export async function fetchCourts(): Promise<Court[]> {
-  const data = await ecaseFetch<{ courts: ApiCourt[] } | ApiCourt[]>("/courts");
-  const raw = Array.isArray(data) ? data : (data as { courts: ApiCourt[] }).courts ?? [];
-  return raw.map(normaliseCourt);
+  const data = await ecaseFetch<EnumsData>("/api/partner/enums?types=courtCode");
+
+  const entries: EnumEntry[] = data.courtCode ?? [];
+
+  return entries.map((e) => {
+    // Derive a rough location/type from the court code prefix
+    // High court codes: DLHC, HCBM, MHCA, TNHC … contain "HC"
+    // NCLT codes start with NCLT; NCLAT start with NCLAT
+    // Everything else is District Court
+    const isHighCourt = /HC/i.test(e.code);
+    const isNCLT = /^NCLT/i.test(e.code);
+    const isNCLAT = /^NCLAT/i.test(e.code);
+    const type = isNCLAT
+      ? "NCLAT"
+      : isNCLT
+      ? "NCLT"
+      : isHighCourt
+      ? "High Court"
+      : "District Court";
+
+    return {
+      code: e.code,
+      name: e.description,
+      location: "",
+      type,
+    };
+  });
 }
 
-// GET /courts/:court_code/cases
+/**
+ * Search cases for a specific court using the Case Search endpoint.
+ * GET /api/partner/search?courtCodes={code}&pageSize=50
+ * (credits charged per request)
+ */
 export async function fetchCasesByCourt(courtCode: string): Promise<CaseListItem[]> {
-  const data = await ecaseFetch<{ cases: ApiCaseListItem[] } | ApiCaseListItem[]>(
-    `/courts/${encodeURIComponent(courtCode)}/cases`
+  const params = new URLSearchParams({
+    courtCodes: courtCode,
+    pageSize: "50",
+    sortBy: "filingDate",
+    sortOrder: "desc",
+  });
+
+  const data = await ecaseFetch<SearchData>(
+    `/api/partner/search?${params.toString()}`
   );
-  const raw = Array.isArray(data) ? data : (data as { cases: ApiCaseListItem[] }).cases ?? [];
-  return raw.map(normaliseCaseList);
+
+  return (data.results ?? []).map((r) => {
+    const petitioner = r.petitioners?.[0] ?? "";
+    const respondent = r.respondents?.[0] ?? "";
+    return {
+      crn: r.cnr,
+      case_title:
+        petitioner && respondent ? `${petitioner} vs ${respondent}` : r.cnr,
+      parties:
+        petitioner && respondent ? `${petitioner} vs ${respondent}` : "",
+      filing_date: r.filingDate ?? "",
+      case_type: r.caseType ?? "",
+      case_status: r.caseStatus ?? "",
+    };
+  });
 }
 
-// GET /cases/:crn
-export async function fetchCaseDetails(crn: string): Promise<CaseDetails | null> {
+/**
+ * Fetch full case details by CNR.
+ * GET /api/partner/case/{cnr}
+ * (credits charged per request)
+ */
+export async function fetchCaseDetails(cnr: string): Promise<CaseDetails | null> {
   try {
-    const data = await ecaseFetch<{ case: ApiCaseDetails } | ApiCaseDetails>(
-      `/cases/${encodeURIComponent(crn)}`
+    const data = await ecaseFetch<CaseDetailData>(
+      `/api/partner/case/${encodeURIComponent(cnr)}`
     );
-    const raw: ApiCaseDetails =
-      "case" in (data as object)
-        ? (data as { case: ApiCaseDetails }).case
-        : (data as ApiCaseDetails);
-    return normaliseCaseDetails(raw, crn);
+
+    const c = data.courtCaseData;
+    const lookup = c.descriptions?.enumLookup ?? {};
+
+    const petitioner = c.petitioners?.[0] ?? "";
+    const respondent = c.respondents?.[0] ?? "";
+    const courtName =
+      (c.courtCode ? lookup.courtCode?.[c.courtCode] : undefined) ??
+      c.courtName ??
+      "";
+
+    return {
+      crn: c.cnr ?? cnr,
+      case_title:
+        petitioner && respondent
+          ? `${petitioner} vs ${respondent}`
+          : c.cnr ?? cnr,
+      parties:
+        petitioner && respondent ? `${petitioner} vs ${respondent}` : "",
+      petitioner,
+      respondent,
+      filing_date: c.filingDate ?? "",
+      case_type:
+        (c.caseType ? lookup.caseType?.[c.caseType] : undefined) ??
+        c.caseTypeRaw ??
+        c.caseType ??
+        "",
+      case_status:
+        (c.caseStatus ? lookup.caseStatus?.[c.caseStatus] : undefined) ??
+        c.caseStatus ??
+        "",
+      court_code: c.courtCode ?? "",
+      court_name: courtName,
+      judge_name: c.judges?.[0],
+      next_hearing_date: c.nextHearingDate,
+      case_summary: c.purpose,
+    };
   } catch (err) {
     console.error("fetchCaseDetails error:", err);
     return null;
